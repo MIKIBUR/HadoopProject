@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.4
+    container_name: zookeeper
+    hostname: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 22181:2181
+    networks:
+      - hadoop-spark-kafka-network
+  
+  kafka:
+    build:
+      context: .
+      dockerfile: Dockerfiles/Dockerfile.kafka
+    container_name: kafka
+    hostname: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - 29092:29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - ./scripts/kafka_entrypoint.sh:/usr/bin/entrypoint.sh
+    networks:
+      - hadoop-spark-kafka-network
+
+  python-producer:
+    build:
+      context: .
+      dockerfile: Dockerfiles/Dockerfile.python-producer
+    depends_on:
+      - kafka
+    volumes:
+      - ./csv_to_kafka.py:/csv_to_kafka.py
+      - ./data/data.csv:/data/data.csv
+    networks:
+      - hadoop-spark-kafka-network
+
+  hadoop-namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
+    container_name: namenode
+    hostname: namenode
+    ports:
+      - "9870:9870"
+    environment:
+      - CLUSTER_NAME=test
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+      - ./data:/data
+      - ./scripts:/scripts
+    networks:
+      - hadoop-spark-kafka-network
+
+  hadoop-datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
+    container_name: datanode
+    hostname: datanode
+    ports:
+      - "9864:9864"
+    environment:
+      - CLUSTER_NAME=test
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    networks:
+      - hadoop-spark-kafka-network
+
+  hadoop-resourcemanager:
+    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop2.7.4-java8
+    container_name: resourcemanager
+    hostname: resourcemanager
+    ports:
+      - "8031:8031"
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    networks:
+      - hadoop-spark-kafka-network
+
+  hadoop-nodemanager:
+    image: bde2020/hadoop-nodemanager:2.0.0-hadoop2.7.4-java8
+    container_name: nodemanager
+    hostname: nodemanager
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    networks:
+      - hadoop-spark-kafka-network
+
+  hadoop-historyserver:
+    image: bde2020/hadoop-historyserver:2.0.0-hadoop2.7.4-java8
+    container_name: historyserver
+    hostname: historyserver
+    ports:
+      - "8188:8188"
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    networks:
+      - hadoop-spark-kafka-network
+
+  spark-master:
+    build:
+      context: .
+      dockerfile: Dockerfiles/Dockerfile.spark-master
+    container_name: spark-master
+    hostname: spark-master
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+    environment:
+      - SPARK_MODE=master
+    volumes:
+      - ./spark_jobs:/spark_jobs
+    networks:
+      - hadoop-spark-kafka-network
+
+
+  spark-worker:
+    image: bitnami/spark:3.2.1
+    container_name: spark-worker
+    hostname: spark-worker
+    ports:
+      - "8081:8081"
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    networks:
+      - hadoop-spark-kafka-network
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode:
+
+networks:
+  hadoop-spark-kafka-network:

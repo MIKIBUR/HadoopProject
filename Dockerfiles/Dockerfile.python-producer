@@ -1,0 +1,13 @@
+# Use the official Python image as the base image
+FROM python:3.11
+
+# Set the working directory in the container
+
+# Install kafka-python package
+RUN pip install kafka-python
+
+# Copy your producer script into the container
+# COPY producer.py .
+
+# Command to run your producer script
+CMD ["python", "csv_to_kafka.py"]
