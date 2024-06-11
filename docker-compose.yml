@@ -43,7 +43,7 @@ services:
       - kafka
     volumes:
       - ./csv_to_kafka.py:/csv_to_kafka.py
-      - ./data/data.csv:/data/data.csv
+      - ./data:/data
     networks:
       - hadoop-spark-kafka-network
 

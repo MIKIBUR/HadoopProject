@@ -5,6 +5,7 @@ USER root
 
 RUN pip install numpy
 RUN pip install kafka-python
+RUN pip install vaderSentiment
 
 # Set the working directory
 WORKDIR /

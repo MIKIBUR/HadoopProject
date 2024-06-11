@@ -5,21 +5,34 @@ from pyspark.sql.window import Window
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.regression import LinearRegression
 from datetime import datetime
-import time
+import logging
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # Kafka configuration
 kafka_broker = 'kafka:29092'  # Kafka broker address inside the container
 topic_name = 'test-topic'      # Kafka topic name
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+sentiment_model = SentimentIntensityAnalyzer()
 
 # Initialize Spark session
 spark = SparkSession.builder.appName("KafkaSparkMLlib").getOrCreate()
 
+def classify_sentiment(compound_score):
+    if compound_score >= 0.05:
+        return 'pos'
+    elif compound_score > -0.05:
+        return 'neu'
+    else:
+        return 'neg'
+    
 def parse_message(message):
-    # Assuming message format: "01/09/2019 07:15,371.94"
-    timestamp_str, value_str = message.split(',')
-    timestamp = datetime.strptime(timestamp_str, '%d/%m/%Y %H:%M')
-    value = float(value_str)
-    return timestamp, value
+    timestamp_str, tweet, politician = message.split(',')
+    timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+    rating = sentiment_model.polarity_scores(tweet)["compound"]
+    sentiment = classify_sentiment(rating)
+    return timestamp, tweet, politician, rating, sentiment
 
 def consume_from_kafka_and_train_model():
     consumer = KafkaConsumer(
@@ -30,19 +43,14 @@ def consume_from_kafka_and_train_model():
     )
     
     train_data = []
-    start_time = datetime.now()
     
     # Consume messages for the first second
-    for message in consumer:
+    for i , message in enumerate(consumer):
         message_value = message.value.decode('utf-8')
-        timestamp, value = parse_message(message_value)
-        elapsed_time = (datetime.now() - start_time).total_seconds()
         
-        train_data.append((timestamp, value))
-        
-        if elapsed_time > 1:
+        train_data.append(parse_message(message_value))
+        if(i > 500):
             break
-
     # Stop consuming
     consumer.close()
 
@@ -51,17 +59,8 @@ def consume_from_kafka_and_train_model():
         return
 
     # Create a DataFrame from the collected training data
-    df = spark.createDataFrame(train_data, ["timestamp", "value"])
+    df = spark.createDataFrame(train_data, ["timestamp", "tweet", "politician","rating","sentiment"])
 
-    # Convert timestamp to Unix timestamp for easier handling
-    df = df.withColumn("timestamp", unix_timestamp(col("timestamp")))
-
-    # Create lagged features
-    windowSpec = Window.orderBy("timestamp")
-    df = df.withColumn("prev_value", lag("value", 1).over(windowSpec))
-    df = df.withColumn("timestamp", from_unixtime(col("timestamp")))
-
-    # Drop rows with null values (the first row will have a null previous value)
     df = df.dropna()
     df.show()
     

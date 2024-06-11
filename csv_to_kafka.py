@@ -6,7 +6,7 @@ import logging
 # Configuration
 kafka_broker = 'kafka:29092'  # Kafka broker address inside the container
 topic_name = 'test-topic'      # Kafka topic name
-csv_file_path = '/data/data.csv'  # Path to the CSV file inside the container
+csv_file_path = '/data/data2.csv'  # Path to the CSV file inside the container
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
