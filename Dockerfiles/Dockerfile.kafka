@@ -1,7 +1,4 @@
 # Dockerfiles/Dockerfile.kafka
 FROM confluentinc/cp-kafka:7.4.4
 
-# COPY entrypoint.sh /usr/bin/entrypoint.sh
-# RUN chmod +x /usr/bin/entrypoint.sh
-
 ENTRYPOINT ["/usr/bin/entrypoint.sh"]
