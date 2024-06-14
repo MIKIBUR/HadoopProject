@@ -36,5 +36,5 @@ Once the containers are up and running (some components may take some time to do
 You can run Spark jobs by submitting them to the Spark cluster. For example:
 
 ```sh
-docker exec -it spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 /kafka_stream_output.py
+docker exec -it spark-master /opt/bitnami/spark/bin/spark-submit --master spark://spark-master:7077 --jars /jars/postgresql42.2.29.jre7.jar --driver-class-path /jars/postgresql42.2.29.jre7.jar /spark_jobs/main.py
 ```
