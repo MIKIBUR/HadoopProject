@@ -1,37 +1,77 @@
 import pandas as pd
-import re 
+import time
 
-# Read the CSV file with tab delimiter and suppress DtypeWarning
-df = pd.read_csv('raw_data.csv', dtype=str, error_bad_lines=False)
+# Specify the columns to read
+columns_to_read = ['candidate_id', 'tweet_text', 'created_at']
 
-# Function to extract politician names from tweet text
-def extract_politician(tweet_text):
-    if isinstance(tweet_text, str):  # Check if tweet_text is a string
-        mention = re.search(r'\b(?:obama|trump|clinton)\b', tweet_text, flags=re.IGNORECASE)
-        if mention:
-            return mention.group(0).lower()  # Return the lowercase version of the politician's name
-    return None
+# Define chunk size (number of rows per chunk)
+chunk_size = 10**6  # 1 Million
+dataset_size = 61631193
 
-df['text'] = df['text'].str.replace(',', '')
+# Initialize an empty list to store chunks
+chunks = []
 
-# Add a new column "politician" and fill it with the name of the politician mentioned
-df['politician'] = df['text'].apply(extract_politician)
+# Load the CSV file in chunks
+file_path = '2016_US_election_tweets.csv'
+# Save the resulting DataFrame to a new CSV file
+output_file = 'filtered_tweets.csv'
+total_rows = 0  # Counter to track total rows processed
 
-# Remove rows with multiple politicians mentioned
-df = df[df['politician'].notna()]  # Remove rows with no politician mentioned
-df = df.drop_duplicates(subset=['text', 'politician'])  # Remove duplicates
+# Candidate mapping
+candidate_mapping = {1: 'clinton', 2: 'trump', 3: 'obama', 4: 'sanders'}
 
-# Discard tweets with no politician mentioned
-df = df[df['politician'].notna()]
+# Start the timer for the whole program
+start_time = time.time()
 
-# Select only the "date", "text", and "politician" columns
-df = df[['date', 'text', 'politician']]
+# Load the CSV file in chunks
+for chunk in pd.read_csv(file_path, usecols=columns_to_read, chunksize=chunk_size):
+    # Map candidate_id to actual candidate names
 
-# Convert "date" column to datetime format
-df['date'] = pd.to_datetime(df['date'])
+    # Append the filtered chunk to the list
+    chunks.append(chunk)
 
-# Sort by the "date" column
-df = df.sort_values(by='date')
+    # Update total rows processed
+    total_rows += len(chunk)
 
-# Write the modified data back to a new CSV file
-df.to_csv('cleaned_file.csv', index=False)
+    # Print progress with time
+    elapsed_time = time.time() - start_time
+    print(f"Processed {total_rows/chunk_size} M rows so far... | Elapsed Time: {elapsed_time:.2f} seconds")
+    print(f"Equals to {total_rows/dataset_size*100:.2f} %")
+
+# Concatenate all chunks into a single DataFrame
+df_filtered = pd.concat(chunks, ignore_index=True)
+print(f"DataFrame created | Elapsed Time: {time.time() - start_time:.2f} seconds")
+
+# Drop rows where 'tweet_text' is NaN
+df_filtered.dropna(subset=['tweet_text'], inplace=True)
+print(f"NaNs dropped | Elapsed Time: {time.time() - start_time:.2f} seconds")
+
+df_filtered['politician'] = df_filtered['candidate_id'].map(candidate_mapping)
+df_filtered.drop(columns=['candidate_id'], inplace=True)
+print(f"Politicians mapped | Elapsed Time: {time.time() - start_time:.2f} seconds")
+
+df_filtered.rename(columns={'tweet_text': 'text'}, inplace=True)
+
+# Convert 'created_at' to timestamp
+df_filtered['date'] = pd.to_datetime(df_filtered['created_at'])
+
+# Drop the original 'created_at' column 
+df_filtered.drop(columns=['created_at'], inplace=True)
+print(f"created_at converted to datetime | Elapsed Time: {time.time() - start_time:.2f} seconds")
+
+# Sort the DataFrame by 'timestamp' in ascending order
+df_sorted = df_filtered.sort_values(by='date', ascending=True)
+print(f"DataFrame sorted | Elapsed Time: {time.time() - start_time:.2f} seconds")
+
+# Print first and last date in human-readable format
+first_date = pd.to_datetime(df_sorted['date'].iloc[0], unit='s')
+last_date = pd.to_datetime(df_sorted['date'].iloc[-1], unit='s')
+
+print(f"Total number of rows in the DataFrame: {len(df_filtered)}")
+print(f"First date: {first_date.strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"Last date: {last_date.strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"Elapsed Time: {time.time() - start_time:.2f} seconds")
+
+# Overwrite the original file with the sorted DataFrame
+df_sorted.to_csv(output_file, index=False)
+print(f"\nSorted data has been saved to {output_file} | Total Elapsed Time: {time.time() - start_time:.2f} seconds.")
