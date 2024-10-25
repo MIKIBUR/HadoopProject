@@ -1,0 +1,11 @@
+# Dockerfile.spark-worker
+FROM bitnami/spark:3.2.1
+
+# Create a directory for Python packages with write access
+RUN mkdir -p /opt/bitnami/spark/python_packages
+
+# Install vaderSentiment in this directory
+RUN pip install --target=/opt/bitnami/spark/python_packages vaderSentiment
+
+# Set PYTHONPATH to include this directory
+ENV PYTHONPATH=/opt/bitnami/spark/python_packages:$PYTHONPATH

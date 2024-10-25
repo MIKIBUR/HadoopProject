@@ -44,13 +44,15 @@ print(f"DataFrame created | Elapsed Time: {time.time() - start_time:.2f} seconds
 
 # Drop rows where 'tweet_text' is NaN
 df_filtered.dropna(subset=['tweet_text'], inplace=True)
+df_filtered.rename(columns={'tweet_text': 'text'}, inplace=True)
 print(f"NaNs dropped | Elapsed Time: {time.time() - start_time:.2f} seconds")
 
 df_filtered['politician'] = df_filtered['candidate_id'].map(candidate_mapping)
 df_filtered.drop(columns=['candidate_id'], inplace=True)
 print(f"Politicians mapped | Elapsed Time: {time.time() - start_time:.2f} seconds")
 
-df_filtered.rename(columns={'tweet_text': 'text'}, inplace=True)
+df_filtered['text'] = df_filtered['text'].str.replace(',', '', regex=False)
+print(f"Comas deleted | Elapsed Time: {time.time() - start_time:.2f} seconds")
 
 # Convert 'created_at' to timestamp
 df_filtered['date'] = pd.to_datetime(df_filtered['created_at'])
@@ -58,6 +60,9 @@ df_filtered['date'] = pd.to_datetime(df_filtered['created_at'])
 # Drop the original 'created_at' column 
 df_filtered.drop(columns=['created_at'], inplace=True)
 print(f"created_at converted to datetime | Elapsed Time: {time.time() - start_time:.2f} seconds")
+
+df_filtered = df_filtered[['date', 'text', 'politician']]
+print(f"Columns reordered | Elapsed Time: {time.time() - start_time:.2f} seconds")
 
 # Sort the DataFrame by 'timestamp' in ascending order
 df_sorted = df_filtered.sort_values(by='date', ascending=True)
@@ -73,5 +78,5 @@ print(f"Last date: {last_date.strftime('%Y-%m-%d %H:%M:%S')}")
 print(f"Elapsed Time: {time.time() - start_time:.2f} seconds")
 
 # Overwrite the original file with the sorted DataFrame
-df_sorted.to_csv(output_file, index=False)
+df_sorted.to_csv(output_file, index=False, header=False)
 print(f"\nSorted data has been saved to {output_file} | Total Elapsed Time: {time.time() - start_time:.2f} seconds.")

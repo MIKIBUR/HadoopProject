@@ -5,6 +5,7 @@ FROM python:3.11
 
 # Install kafka-python package
 RUN pip install kafka-python
+RUN pip install pandas
 
 # Copy your producer script into the container
 # COPY producer.py .

@@ -1,14 +1,16 @@
 from kafka import KafkaConsumer
-from pyspark.sql import SparkSession, Row
+from pyspark.sql import SparkSession
 from datetime import datetime
 import logging
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from pyspark.sql.types import StructType, StructField, StringType, FloatType
+from pyspark.sql.functions import udf
+from pyspark.sql import functions as F
 import time
 
 # Kafka configuration
-kafka_broker = 'kafka:29092'  # Kafka broker address inside the container
-topic_name = 'test-topic'      # Kafka topic name
+kafka_broker = 'kafka:29092'
+topic_name = 'test-topic'
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,61 +22,55 @@ spark = SparkSession.builder \
     .appName("KafkaSparkMLlib") \
     .getOrCreate()
 
-def classify_sentiment(compound_score):
-    if compound_score >= 0.05:
-        return 'pos'
-    elif compound_score > -0.05:
-        return 'neu'
-    else:
-        return 'neg'
-    
-def parse_message(message):
-    timestamp_str, tweet, politician = message.split(',')
-    timestamp = int(time.mktime(datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S').timetuple()))
-    rating = sentiment_model.polarity_scores(tweet)["compound"]
-    sentiment = classify_sentiment(rating)
-    return timestamp, tweet, politician, rating, sentiment
+# Spark UDFs to classify sentiment and parse the timestamp
+get_rating_udf = udf(lambda text: sentiment_model.polarity_scores(text)["compound"], FloatType())
+parse_timestamp_udf = udf(lambda ts: int(time.mktime(datetime.strptime(ts, '%Y-%m-%d %H:%M:%S').timetuple())), StringType())
 
-def consume_from_kafka_and_train_model():
+def consume_from_kafka_and_train_model(batch_size=100):
     consumer = KafkaConsumer(
         topic_name,
         bootstrap_servers=kafka_broker,
-        auto_offset_reset='earliest',  # Start reading from the earliest offset
-        group_id=None  # Disable consumer groups
+        auto_offset_reset='earliest',
+        group_id=None
     )
-    
+
     schema = StructType([
-    StructField("timestamp", StringType(), True),
-    StructField("tweet", StringType(), True),
-    StructField("politician", StringType(), True),
-    StructField("rating", FloatType(), True),
-    StructField("sentiment", StringType(), True)
+        StructField("timestamp_str", StringType(), True),
+        StructField("tweet", StringType(), True),
+        StructField("politician", StringType(), True)
     ])
 
-    # Consume messages for the first second
-    for i , message in enumerate(consumer):
+    batch = []
+    for message in consumer:
         message_value = message.value.decode('utf-8')
-        
-        row = Row((parse_message(message_value)))
-        new_df = spark.createDataFrame(row, schema)
-        new_df.write \
-            .format("jdbc") \
-            .option("url", "jdbc:postgresql://postgres:5432/spark_db") \
-            .option("dbtable", "politicians") \
-            .option("user", "spark_user") \
-            .option("password", "spark_password") \
-            .mode("append") \
-            .save()
-        # new_df.show()
-        # logger.info("Iteration number: "+str(i))
-        
-        # if(i > 50):
-        #     break
-    # Stop consuming
+        batch.append(tuple(message_value.split(',')))
+
+        if len(batch) >= batch_size:
+            # Create a DataFrame from the batch
+            df = spark.createDataFrame(batch, schema=schema)
+
+            # Apply transformations to add only necessary columns
+            df = df.withColumn("timestamp", parse_timestamp_udf(df["timestamp_str"])) \
+                   .withColumn("rating", get_rating_udf(df["tweet"])) \
+                   .drop("timestamp_str")  # Drop the original timestamp column
+
+            # Write batch to the database
+            df.write \
+                .format("jdbc") \
+                .option("url", "jdbc:postgresql://postgres:5432/spark_db") \
+                .option("dbtable", "politicians") \
+                .option("user", "spark_user") \
+                .option("password", "spark_password") \
+                .mode("append") \
+                .save()
+            
+            logger.info(f"Processed and saved {len(batch)} messages.")
+            batch.clear()  # Clear the batch for the next set of messages
+
+    # Stop consuming after loop ends
     consumer.close()
 
-if __name__ == "__main__":
-    consume_from_kafka_and_train_model()
 
-    # Stop Spark session
+if __name__ == "__main__":
+    consume_from_kafka_and_train_model(batch_size=100)
     spark.stop()

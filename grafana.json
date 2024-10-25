@@ -107,7 +107,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH RankedRatings AS (\r\n    SELECT\r\n        politician,\r\n        rating,\r\n        ROW_NUMBER() OVER (PARTITION BY politician ORDER BY timestamp DESC) AS row_num\r\n    FROM\r\n        politicians\r\n    WHERE\r\n        politician IN ('trump', 'clinton', 'obama')\r\n)\r\nSELECT\r\n    politician,\r\n    AVG(rating) AS average_rating\r\nFROM\r\n    RankedRatings\r\nWHERE\r\n    row_num <= 50\r\nGROUP BY\r\n    politician;\r\n",
+          "rawSql": "WITH RankedRatings AS (\r\n    SELECT\r\n        politician,\r\n        rating,\r\n        ROW_NUMBER() OVER (PARTITION BY politician ORDER BY timestamp DESC) AS row_num\r\n    FROM\r\n        politicians\r\n    WHERE\r\n        politician IN ('trump', 'clinton', 'obama','sanders')\r\n)\r\nSELECT\r\n    politician,\r\n    AVG(rating) AS average_rating\r\nFROM\r\n    RankedRatings\r\nWHERE\r\n    row_num <= 500\r\nGROUP BY\r\n    politician;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -128,7 +128,7 @@
           }
         }
       ],
-      "title": "Średnia krocząca semantyki polityków (50 próbek)",
+      "title": "Średnia krocząca semantyki polityków (500 próbek)",
       "type": "barchart"
     },
     {
@@ -277,6 +277,35 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
+          "rawSql": "SELECT \r\n    DATE_TRUNC('day', TIMESTAMP 'epoch' + CAST(timestamp AS bigint) * INTERVAL '1 second') AS week_timestamp,\r\n    AVG(rating) AS sanders\r\nFROM \r\n    politicians\r\nWHERE \r\n    politician = 'sanders'\r\nGROUP BY \r\n    week_timestamp\r\nORDER BY \r\n    week_timestamp;\r\n",
+          "refId": "Sanders",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "psg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
           "rawSql": "SELECT \r\n    DATE_TRUNC('day', TIMESTAMP 'epoch' + CAST(timestamp AS bigint) * INTERVAL '1 second') AS week_timestamp,\r\n    AVG(rating) AS clinton\r\nFROM \r\n    politicians\r\nWHERE \r\n    politician = 'clinton'\r\nGROUP BY \r\n    week_timestamp\r\nORDER BY \r\n    week_timestamp;\r\n",
           "refId": "Clinton",
           "sql": {
@@ -387,7 +416,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\r\n    politician,\r\n    AVG(rating) AS average_rating\r\nFROM\r\n    politicians \r\nWHERE\r\n    politician IN ('obama', 'trump', 'clinton')\r\nGROUP BY\r\n    politician;\r\n",
+          "rawSql": "SELECT\r\n    politician,\r\n    AVG(rating) AS average_rating\r\nFROM\r\n    politicians \r\nWHERE\r\n    politician IN ('obama', 'trump', 'clinton','sanders')\r\nGROUP BY\r\n    politician;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -530,6 +559,35 @@
           "rawQuery": true,
           "rawSql": "SELECT \r\n    DATE_TRUNC('week', TIMESTAMP 'epoch' + CAST(timestamp AS bigint) * INTERVAL '1 second') AS week_timestamp,\r\n    AVG(rating) AS trump\r\nFROM \r\n    politicians\r\nWHERE \r\n    politician = 'trump'\r\nGROUP BY \r\n    week_timestamp\r\nORDER BY \r\n    week_timestamp;\r\n",
           "refId": "Trump",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "psg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT \r\n    DATE_TRUNC('week', TIMESTAMP 'epoch' + CAST(timestamp AS bigint) * INTERVAL '1 second') AS week_timestamp,\r\n    AVG(rating) AS sanders\r\nFROM \r\n    politicians\r\nWHERE \r\n    politician = 'sanders'\r\nGROUP BY \r\n    week_timestamp\r\nORDER BY \r\n    week_timestamp;\r\n",
+          "refId": "Sanders",
           "sql": {
             "columns": [
               {

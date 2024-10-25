@@ -96,7 +96,10 @@ services:
 
 
   spark-worker:
-    image: bitnami/spark:3.2.1
+    build:
+      context: .
+      dockerfile: Dockerfiles/Dockerfile.spark-worker
+    image: custom-spark-worker:3.2.1  # Optional: name for the custom image
     container_name: spark-worker
     hostname: spark-worker
     ports:
