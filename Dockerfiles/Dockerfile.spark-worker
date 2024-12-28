@@ -6,6 +6,8 @@ RUN mkdir -p /opt/bitnami/spark/python_packages
 
 # Install vaderSentiment in this directory
 RUN pip install --target=/opt/bitnami/spark/python_packages vaderSentiment
+RUN pip install --target=/opt/bitnami/spark/python_packages pandas
+RUN pip install --target=/opt/bitnami/spark/python_packages pyarrow
 
 # Set PYTHONPATH to include this directory
 ENV PYTHONPATH=/opt/bitnami/spark/python_packages:$PYTHONPATH

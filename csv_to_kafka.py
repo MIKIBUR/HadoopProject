@@ -32,7 +32,13 @@ def load_csv_to_kafka(file_path, producer, topic_name, batch_size=500, delay=1):
     for chunk in pd.read_csv(file_path, chunksize=chunk_size):
         batch = []
         for _, row in chunk.iterrows():
-            message = ','.join(row.astype(str))
+            # Sanitize the row to remove newline characters
+            sanitized_row = row.astype(str).replace({r'\n': '', r'\r': ''}, regex=True)
+
+            # Create a message by joining the sanitized row
+            message = ','.join(sanitized_row)
+
+            # Encode the message and add to the batch
             batch.append(message.encode('utf-8'))
 
             if len(batch) >= batch_size:
@@ -50,6 +56,7 @@ def load_csv_to_kafka(file_path, producer, topic_name, batch_size=500, delay=1):
                 producer.send(topic_name, msg)
             producer.flush()
             logger.info(f'Sent {len(batch)} remaining messages as a batch')
+
 
 if __name__ == "__main__":
     producer = initialize_kafka_producer()
